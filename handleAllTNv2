@@ -15,7 +15,6 @@
 							int acierto = rs.getResults().get(i).getInteger(2);
 							if(cont==3 && acierto==0) {
 								System.out.println("Usted usuario " + user + " no puede entrar en el keli hasta dentro de un rato");
-								break;
 							}
 						}
 						routingContext.response().end(jsonResult);
