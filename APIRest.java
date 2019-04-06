@@ -1,3 +1,39 @@
+		
+import java.time.LocalDateTime;
+import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Future;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.asyncsql.AsyncSQLClient;
+import io.vertx.ext.asyncsql.MySQLClient;
+import io.vertx.ext.sql.ResultSet;
+import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.BodyHandler;
+
+public class RestServer extends AbstractVerticle{
+	
+private AsyncSQLClient mySQLClient;
+	
+	public void start(Future<Void> startFuture) {
+		JsonObject config = new JsonObject()
+				.put("host", "localhost")
+				.put("username", "root")
+				.put("password", "root")
+				.put("database", "dad")
+				.put("port", 3306);
+		mySQLClient = 
+				MySQLClient.createShared(vertx, config);
+		
+		Router router = Router.router(vertx);
+		vertx.createHttpServer().requestHandler(router).
+			listen(8090, result -> {
+				if (result.succeeded()) {
+					System.out.println("Servidor database desplegado");
+				}else {
+					System.out.println("Error de despliegue");
+				}
+			});
+		
 		router.route().handler(BodyHandler.create());
 		router.get("/sensorespir").handler(this::handleAllPIR);
 		router.get("/finalescarrera").handler(this::handleAllFC);
@@ -9,6 +45,7 @@
 		router.put("/finalescarrera").handler(this::handlePutFC);
 		router.put("/buzzers").handler(this::handlePutBuzzer);
 		router.put("/servos").handler(this::handlePutServos);
+		router.put("/tecladosnumericos").handler(this::handlePutTN);
 	}
 	
 	private void handleAllPIR(RoutingContext routingContext) {
@@ -105,7 +142,7 @@
 				LocalDateTime ldt = LocalDateTime.now();
 				String fin = transfFecha(ldt);
 				String ini = formatFecha(ldt);
-				connection.result().query("SELECT idUsuarioTN, cont, acierto FROM dad.tecladosnumericos "
+				connection.result().query("SELECT idUsuario, cont, acierto FROM dad.tecladosnumericos "
 						+ "WHERE tempTN <= '" + ini + "' AND tempTN >= '" + fin + "';", result -> {
 					if(result.succeeded()) {
 						String jsonResult=result.result().toJson().encodePrettily();
@@ -260,6 +297,34 @@
 		});	
 	}
 	
+	private void handlePutTN(RoutingContext routingContext){
+		JsonObject body=routingContext.getBodyAsJson();
+		mySQLClient.getConnection(connection -> {
+			if (connection.succeeded()) {
+				connection.result().query("INSERT INTO tecladosnumericos (passTN,tempTN,idUsuario,cont,acierto) "
+						+ "VALUES (\"" + body.getString("passTN") + "\"," + body.getInteger("tempTN") + "," + 
+									body.getInteger("idUsuario") + "," + body.getInteger("cont") + 
+									"," + body.getInteger("acierto") + ");", result -> {
+					if (result.succeeded()) {
+						routingContext.response()
+						.putHeader("content-type", "application/json")
+						.end(body.encode());
+					}else {
+						System.out.println(result.cause().getMessage());
+						routingContext.response().setStatusCode(400).end();
+					}
+					connection.result().close();
+				});
+			}else {
+				routingContext.response().end();
+				connection.result().close();
+				System.out.println(connection.cause().getMessage());
+				routingContext.response().setStatusCode(400).end();
+			}
+		});	
+	}
+
+	
 	private String transfFecha(LocalDateTime ldt) {
 		String res;
 		ldt = ldt.minusMinutes(5);
@@ -268,3 +333,8 @@
 	}
 	
 	private String formatFecha(LocalDateTime ldt) {
+		String res = ldt.toString();
+		return res;
+	}
+
+}
