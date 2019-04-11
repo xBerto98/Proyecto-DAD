@@ -1,11 +1,9 @@
-		
-import java.time.LocalDateTime;
+import java.util.*;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.asyncsql.AsyncSQLClient;
 import io.vertx.ext.asyncsql.MySQLClient;
-import io.vertx.ext.sql.ResultSet;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
@@ -51,8 +49,12 @@ private AsyncSQLClient mySQLClient;
 	private void handleAllPIR(RoutingContext routingContext) {
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
-				connection.result().query("SELECT idPIR,nombrePIR,tempPIR FROM sensorespir " , result -> {
+				connection.result().query("SELECT idPIR,nombrePIR,tempPir FROM sensorespir " , result -> {
 					if (result.succeeded()) {
+						for(int i=0; i<result.result().getNumRows(); i++){
+						Long fecha=result.result().getRows().get(i).getLong("tempPir");
+						result.result().getRows().get(i).put("tempPir",getFecha(fecha).toString());
+						}
 						String jsonResult = result.result().toJson().encodePrettily();
 						routingContext.response().end(jsonResult);
 					}else {
@@ -117,7 +119,7 @@ private AsyncSQLClient mySQLClient;
 	private void handleAllBuzzers(RoutingContext routingContext) {
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
-				connection.result().query("SELECT idPIR,nombreBuzz,tempBuzz FROM buzzers" , result -> {
+				connection.result().query("SELECT idPIR,tempBuzz FROM buzzers" , result -> {
 					if (result.succeeded()) {
 						String jsonResult=result.result().toJson().encodePrettily();
 						routingContext.response().end(jsonResult);
@@ -139,22 +141,10 @@ private AsyncSQLClient mySQLClient;
 	private void handleAllTNv2(RoutingContext routingContext) {
 		mySQLClient.getConnection(connection -> {
 			if(connection.succeeded()) {
-				LocalDateTime ldt = LocalDateTime.now();
-				String fin = transfFecha(ldt);
-				String ini = formatFecha(ldt);
-				connection.result().query("SELECT idUsuario, cont, acierto FROM dad.tecladosnumericos "
-						+ "WHERE tempTN <= '" + ini + "' AND tempTN >= '" + fin + "';", result -> {
+				connection.result().query("SELECT idUsuario, cont, acierto,tempTN FROM dad.tecladosnumericos "
+							, result -> {
 					if(result.succeeded()) {
 						String jsonResult=result.result().toJson().encodePrettily();
-						ResultSet rs = result.result();
-						for (int i = 0; i < rs.getNumRows(); i++) {
-							int user = rs.getResults().get(i).getInteger(0);
-							int cont = rs.getResults().get(i).getInteger(1);
-							int acierto = rs.getResults().get(i).getInteger(2);
-							if(cont==3 && acierto==0) {
-								System.out.println("Usted usuario " + user + " no puede entrar en el keli hasta dentro de un rato");
-							}
-						}
 						routingContext.response().end(jsonResult);
 					} else {
 						System.out.println(result.cause().getMessage());
@@ -198,7 +188,7 @@ private AsyncSQLClient mySQLClient;
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
 				connection.result().query("INSERT INTO sensorespir (nombrePIR,tempPIR) "
-						+ "VALUES (\"" + body.getString("nombrePIR") + "\"," + body.getInteger("tempPIR") + ");", result -> {
+						+ "VALUES (\"" + body.getString("nombrePIR") + "\"," + body.getLong("tempPir") + ");", result -> {
 					if (result.succeeded()) {
 						routingContext.response()
 						.putHeader("content-type", "application/json")
@@ -224,7 +214,7 @@ private AsyncSQLClient mySQLClient;
 			if (connection.succeeded()) {
 				connection.result().query("INSERT INTO finalescarrera (nombreFC,cerrado,tempFC) "
 						+ "VALUES (\"" + body.getString("nombreFC") + "\"," + body.getInteger("cerrado") + "," +
-									body.getInteger("tempFC") + ");", result -> {
+									body.getLong("tempFC") + ");", result -> {
 					if (result.succeeded()) {
 						routingContext.response()
 						.putHeader("content-type", "application/json")
@@ -248,9 +238,9 @@ private AsyncSQLClient mySQLClient;
 		JsonObject body=routingContext.getBodyAsJson();
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
-				connection.result().query("INSERT INTO buzzers (idPIR,nombreBuzz,tempBuzz) "
-						+ "VALUES (" + body.getInteger("idPIR") + ",\"" + body.getString("nombreBuzz") + "\"," + 
-									body.getInteger("tempBuzz") + ");", result -> {
+				connection.result().query("INSERT INTO buzzers (idPIR,tempBuzz) "
+						+ "VALUES (" + body.getInteger("idPIR") + "," + 
+									body.getLong("tempBuzz") + ");", result -> {
 					if (result.succeeded()) {
 						routingContext.response()
 						.putHeader("content-type", "application/json")
@@ -277,7 +267,7 @@ private AsyncSQLClient mySQLClient;
 				connection.result().query("INSERT INTO servos (idFC,idUsuario,nombreServo,tempServo) "
 						+ "VALUES (" + body.getInteger("idFC") + "," + body.getInteger("idUsuario") +
 						",\"" + body.getString("nombreServo") + "\"," 
-						+ body.getInteger("tempServo") +");", result -> {
+						+ body.getLong("tempServo") +");", result -> {
 					if (result.succeeded()) {
 						routingContext.response()
 						.putHeader("content-type", "application/json")
@@ -302,7 +292,7 @@ private AsyncSQLClient mySQLClient;
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
 				connection.result().query("INSERT INTO tecladosnumericos (passTN,tempTN,idUsuario,cont,acierto) "
-						+ "VALUES (\"" + body.getString("passTN") + "\"," + body.getInteger("tempTN") + "," + 
+						+ "VALUES (\"" + body.getString("passTN") + "\"," + body.getLong("tempTN") + "," + 
 									body.getInteger("idUsuario") + "," + body.getInteger("cont") + 
 									"," + body.getInteger("acierto") + ");", result -> {
 					if (result.succeeded()) {
@@ -323,18 +313,12 @@ private AsyncSQLClient mySQLClient;
 			}
 		});	
 	}
-
 	
-	private String transfFecha(LocalDateTime ldt) {
-		String res;
-		ldt = ldt.minusMinutes(5);
-		res=ldt.toString();
-		return res;
-	}
-	
-	private String formatFecha(LocalDateTime ldt) {
-		String res = ldt.toString();
-		return res;
+	public Date getFecha(Long fecha){
+		Calendar calendar=Calendar.getInstance();
+		calendar.setTimeInMillis(fecha*1000);
+		return calendar.getTime();
+		
 	}
 
 }
