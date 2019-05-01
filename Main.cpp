@@ -13,11 +13,11 @@ Servo servoMotor;
 int servoValue;
 // Update these with values suitable for your network.
 
-const char* ssid ="WI-NET 02"; //"MiFibra-0B3E";//"WI-NET 02"; //"Simon";
-const char* password ="68674052"; //"rmoxrP9m";//"68674052";//"tusmuertos";
+const char* ssid =""; 
+const char* password =""; 
 const char* channel_name = "topic_2";
-const char* mqtt_server ="192.168.1.110"; //"192.168.1.59";
-const char* http_server ="192.168.1.110"; //"192.168.1.59";
+const char* mqtt_server ="";
+const char* http_server ="";
 const char* http_server_port = "8090";
 String clientId;
 
@@ -198,8 +198,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print((char)payload[i]);
   }
   Serial.println();
-
-
+  
   DynamicJsonDocument doc(length);
   deserializeJson(doc, payload, length);
   const char* action = doc["action"];
