@@ -37,6 +37,7 @@ private AsyncSQLClient mySQLClient;
 		router.get("/finalescarrera").handler(this::handleAllFC);
 		router.get("/usuarios").handler(this::handleAllUsers);
 		router.get("/servos").handler(this::handleAllServos);
+		router.get("/servosId").handler(this::handleLastServoId);
 		router.get("/buzzers").handler(this::handleAllBuzzers);
 		router.get("/tecladosnumericos").handler(this::handleAllTNv2);
 		router.put("/sensorespir").handler(this::handlePutSensorPir);
@@ -75,8 +76,12 @@ private AsyncSQLClient mySQLClient;
 	private void handleAllFC(RoutingContext routingContext) {
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
-				connection.result().query("SELECT idFC,nombreFC,cerrado,tempFC FROM finalescarrera" , result -> {
+				connection.result().query("SELECT idServo,nombreFC,cerrado,tempFC FROM finalescarrera" , result -> {
 					if (result.succeeded()) {
+						for(int i=0; i<result.result().getNumRows(); i++){
+							Long fecha=result.result().getRows().get(i).getLong("tempFC");
+							result.result().getRows().get(i).put("tempFC",getFecha(fecha).toString());
+						}
 						String jsonResult=result.result().toJson().encodePrettily();
 						routingContext.response().end(jsonResult);
 					}else {
@@ -121,6 +126,10 @@ private AsyncSQLClient mySQLClient;
 			if (connection.succeeded()) {
 				connection.result().query("SELECT idPIR,tempBuzz FROM buzzers" , result -> {
 					if (result.succeeded()) {
+						for(int i=0; i<result.result().getNumRows(); i++){
+							Long fecha=result.result().getRows().get(i).getLong("tempBuzz");
+							result.result().getRows().get(i).put("tempBuzz",getFecha(fecha).toString());
+						}
 						String jsonResult=result.result().toJson().encodePrettily();
 						routingContext.response().end(jsonResult);
 					}else {
@@ -144,6 +153,10 @@ private AsyncSQLClient mySQLClient;
 				connection.result().query("SELECT idUsuario, cont, acierto,tempTN FROM dad.tecladosnumericos "
 							, result -> {
 					if(result.succeeded()) {
+						for(int i=0; i<result.result().getNumRows(); i++){
+							Long fecha=result.result().getRows().get(i).getLong("tempTN");
+							result.result().getRows().get(i).put("tempTN",getFecha(fecha).toString());
+						}
 						String jsonResult=result.result().toJson().encodePrettily();
 						routingContext.response().end(jsonResult);
 					} else {
@@ -164,7 +177,33 @@ private AsyncSQLClient mySQLClient;
 	private void handleAllServos(RoutingContext routingContext){
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
-				connection.result().query("SELECT idFC,idUsuario,nombreServo,tempServo FROM servos" , result -> {
+				connection.result().query("SELECT idServo,idUsuario,nombreServo,tempServo FROM servos" , result -> {
+					if (result.succeeded()) {
+						for(int i=0; i<result.result().getNumRows(); i++){
+							Long fecha=result.result().getRows().get(i).getLong("tempServo");
+							result.result().getRows().get(i).put("tempServo",getFecha(fecha).toString());
+						}
+						String jsonResult=result.result().toJson().encodePrettily();
+						routingContext.response().end(jsonResult);
+					}else {
+						System.out.println(result.cause().getMessage());
+						routingContext.response().setStatusCode(400).end();
+					}
+					connection.result().close();
+				});
+			}else {
+				routingContext.response().end();
+				connection.result().close();
+				System.out.println(connection.cause().getMessage());
+				routingContext.response().setStatusCode(400).end();
+			}
+		});
+	}
+	
+	private void handleLastServoId(RoutingContext routingContext){
+		mySQLClient.getConnection(connection -> {
+			if (connection.succeeded()) {
+				connection.result().query("SELECT idServo FROM servos ORDER BY idServo DESC LIMIT 1" , result -> {
 					if (result.succeeded()) {
 						String jsonResult=result.result().toJson().encodePrettily();
 						routingContext.response().end(jsonResult);
@@ -212,9 +251,9 @@ private AsyncSQLClient mySQLClient;
 		JsonObject body=routingContext.getBodyAsJson();
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
-				connection.result().query("INSERT INTO finalescarrera (nombreFC,cerrado,tempFC) "
+				connection.result().query("INSERT INTO finalescarrera (nombreFC,cerrado,tempFC,idServo) "
 						+ "VALUES (\"" + body.getString("nombreFC") + "\"," + body.getInteger("cerrado") + "," +
-									body.getLong("tempFC") + ");", result -> {
+									body.getLong("tempFC") + "," + body.getInteger("idServo") + ");", result -> {
 					if (result.succeeded()) {
 						routingContext.response()
 						.putHeader("content-type", "application/json")
@@ -264,9 +303,8 @@ private AsyncSQLClient mySQLClient;
 		JsonObject body=routingContext.getBodyAsJson();
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
-				connection.result().query("INSERT INTO servos (idFC,idUsuario,nombreServo,tempServo) "
-						+ "VALUES (" + body.getInteger("idFC") + "," + body.getInteger("idUsuario") +
-						",\"" + body.getString("nombreServo") + "\"," 
+				connection.result().query("INSERT INTO servos (idUsuario,nombreServo,tempServo) "
+						+ "VALUES (" + body.getInteger("idUsuario") + ",\"" + body.getString("nombreServo") + "\"," 
 						+ body.getLong("tempServo") +");", result -> {
 					if (result.succeeded()) {
 						routingContext.response()
