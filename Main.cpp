@@ -7,17 +7,22 @@
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
 
-#define BUILTIN_LED 2
-
 Servo servoMotor;
 int servoValue;
+bool manual;
+int estadoPir=LOW;
+//int auto;
+
+int pinBuzzer=D2;
+int pinServo=D4;
+int pinPir=D7;
 // Update these with values suitable for your network.
 
-const char* ssid =""; 
-const char* password =""; 
+const char* ssid ="WI-NET 02"; //"MiFibra-0B3E";//"WI-NET 02"; //"Simon";
+const char* password ="68674052"; //"rmoxrP9m";//"68674052";//"tusmuertos";
 const char* channel_name = "topic_2";
-const char* mqtt_server ="";
-const char* http_server ="";
+const char* mqtt_server ="192.168.1.110"; //"192.168.1.59";
+const char* http_server ="192.168.1.110"; //"192.168.1.59";
 const char* http_server_port = "8090";
 String clientId;
 
@@ -131,8 +136,6 @@ void makeGetRequestServo(){
      DynamicJsonDocument root(bufferSize);
      deserializeJson(root, payload); //propiedades del Json por separado
      idServo = root["results"][0][0];
-     Serial.println(idServo);
-
     }
 
     Serial.printf("\nRespuesta servidor REST %d\n", httpCode);
@@ -185,6 +188,45 @@ void makePutRequestFC(){
     http.end();
 }
 
+void makePutRequestPir(){
+    HTTPClient http;
+    // Abrimos la conexión con el servidor REST y definimos la URL del recurso
+    String url = "http://";
+    url += http_server;
+    url += ":";
+    url += http_server_port;
+    url += "/sensorespir/";
+
+    String message = "Enviando petición PUT al servidor REST. ";
+    message += url;
+    Serial.println(message);
+    // Realizamos la petición y obtenemos el código de estado de la respuesta
+    http.begin(url);
+
+    const size_t bufferSize = JSON_OBJECT_SIZE(1) + 370;
+    DynamicJsonDocument root(bufferSize);
+
+    root["nombrePIR"]="puerta principal";
+    root["tempPir"]=timeClient.getEpochTime()-3600;
+    String json_string;
+    serializeJson(root, json_string);
+
+    int httpCode = http.PUT(json_string);
+
+    if (httpCode > 0)
+    {
+     // Si el código devuelto es > 0, significa que tenemos respuesta, aunque
+     // no necesariamente va a ser positivo (podrí­a ser un código 400).
+     // Obtenemos el cuerpo de la respuesta y lo imprimimos por el puerto serie
+     String payload = http.getString();
+     Serial.println("payload put: " + payload);
+    }
+
+    Serial.printf("\nRespuesta servidor REST PUT %d\n", httpCode);
+    // Cerramos la conexión con el servidor REST
+    http.end();
+}
+
 // Método llamado por el cliente MQTT cuando se recibe un mensaje en un canal
 // al que se encuentra suscrito. Los parámetros indican el canal (topic),
 // el contenido del mensaje (payload) y su tamaño en bytes (length)
@@ -198,7 +240,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
     Serial.print((char)payload[i]);
   }
   Serial.println();
-  
+
+
   DynamicJsonDocument doc(length);
   deserializeJson(doc, payload, length);
   const char* action = doc["action"];
@@ -229,9 +272,11 @@ void callback(char* topic, byte* payload, unsigned int length) {
     delay(100);
     Serial.println("Detectada acción de cierre de puerta");
   }else if(strcmp(action, "pir_manual_on") == 0){
-    //Activar pin correspondiente
+    manual=true;
+    Serial.println("Detecada acción de activación manual del sensor PIR");
   }else if(strcmp(action, "pir_manual_off") == 0){
-    //Desactivar pin corresponidente
+    manual=false;
+    Serial.println("Detecada acción de desactivación manual del sensor PIR");
   }else{
     Serial.println("Acción no reconocida");
   }
@@ -277,7 +322,9 @@ void setup() {
   // Ajustamos el pinmode del pin de salida para poder controlar un
   // switch digial (dido led por ejemplo)
   //pinMode(BUILTIN_LED, OUTPUT);
-  servoMotor.attach(D4);
+  pinMode(pinPir,INPUT);
+  pinMode(pinBuzzer,OUTPUT);
+  servoMotor.attach(pinServo);
   servoMotor.write(0);
   // Fijamos el baudrate del puerto de comunicación serie
   Serial.begin(115200);
@@ -304,10 +351,29 @@ void loop() {
   // publique un mensaje que será recibido por el dispositivo actual
   client.loop();
 
+  int valPir=digitalRead(pinPir);
+
+  //makeGetRequestUpdateTN();
+  if((valPir==HIGH && manual==true)/* || (valPir==HIGH && )*/){
+    digitalWrite(pinBuzzer,HIGH);
+    if(estadoPir==LOW){
+      makePutRequestPir();
+      //delay(100);
+      //makeGetRequestBuzzer();
+      //delay(100);
+      //makePutRequestBuzzer();
+      estadoPir=HIGH;
+    }
+  }else{
+    digitalWrite(pinBuzzer,LOW);
+    if(estadoPir==HIGH)
+      estadoPir=LOW;
+  }
+
   // Cada 2 segundos publicaremos un mensaje en el canal procedente del cliente
   // actual. Esto se hace sin bloquear el loop ya que de lo contrario afectarí­a
   // a la recepción de los mensajes MQTT
-  /*long now = millis();
+  long now = millis();
   if (now - lastMsg > 2000) {
     lastMsg = now;
     ++value;
@@ -323,5 +389,4 @@ void loop() {
     Serial.println(output);
     client.publish(channel_name, output.c_str());
   }
-*/
 }
