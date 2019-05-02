@@ -102,7 +102,7 @@ private AsyncSQLClient mySQLClient;
 	private void handleAllUsers(RoutingContext routingContext) {
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
-				connection.result().query("SELECT idUsuario,nombre,passUsuario,dentro FROM usuarios" , result -> {
+				connection.result().query("SELECT idUsuario,nombre,passUsuario FROM usuarios" , result -> {
 					if (result.succeeded()) {
 						String jsonResult = result.result().toJson().encodePrettily();
 						routingContext.response().end(jsonResult);
