@@ -86,37 +86,43 @@ public class MqttServidor extends AbstractVerticle{
 				public void run() {
 					
 					 //Publicamos un mensaje en el topic "topic_2"
-					//Random random = new Random();
+					Integer user;
+					String nombre;
 					System.out.println("Introduce el código correspondiente para realizar la acción que desees: ");
 					Integer code=scan.nextInt();
-					
 					if (mqttClient.isConnected()) {
 						if(code==0){
 						System.out.println("Introduce tu ID de usuario: ");
-						Integer user=scan.nextInt();
+						user=scan.nextInt();
+						scan.nextLine();
+						System.out.println("Introduce el lugar donde quieres actuar: ");
+						nombre=scan.nextLine();
 						mqttClient.publish("topic_2",
-								Buffer.buffer(new JsonObject().put("action", "servo_on").put("idUsuario", user)
-										.put("timestamp", Calendar.getInstance().getTimeInMillis())
+								Buffer.buffer(new JsonObject().put("action", "servo_on")
+										.put("idUsuario", user)
+										.put("name", nombre)
 										.put("clientId", mqttClient.clientId()).encode()),
 								MqttQoS.AT_LEAST_ONCE, false, false);
 						}else if(code==1){
 						System.out.println("Introduce tu ID de usuario: ");
-						Integer user=scan.nextInt();
-							mqttClient.publish("topic_2",
-									Buffer.buffer(new JsonObject().put("action", "servo_off").put("idUsuario", user)
-											.put("timestamp", Calendar.getInstance().getTimeInMillis())
+						user=scan.nextInt();
+						scan.nextLine();
+						System.out.println("Introduce el lugar donde quieres actuar: ");
+						nombre=scan.nextLine();
+						mqttClient.publish("topic_2",
+									Buffer.buffer(new JsonObject().put("action", "servo_off")
+											.put("idUsuario", user)
+											.put("name", nombre)
 											.put("clientId", mqttClient.clientId()).encode()),
 									MqttQoS.AT_LEAST_ONCE, false, false);
 						}else if(code==2){
 							mqttClient.publish("topic_2",
 									Buffer.buffer(new JsonObject().put("action", "pir_manual_on")
-											.put("timestamp", Calendar.getInstance().getTimeInMillis())
 											.put("clientId", mqttClient.clientId()).encode()),
 									MqttQoS.AT_LEAST_ONCE, false, false);
 						}else if(code==3){
 							mqttClient.publish("topic_2",
 									Buffer.buffer(new JsonObject().put("action", "pir_manual_off")
-											.put("timestamp", Calendar.getInstance().getTimeInMillis())
 											.put("clientId", mqttClient.clientId()).encode()),
 									MqttQoS.AT_LEAST_ONCE, false, false);
 						}
