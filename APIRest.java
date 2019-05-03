@@ -34,6 +34,7 @@ private AsyncSQLClient mySQLClient;
 		
 		router.route().handler(BodyHandler.create());
 		router.get("/sensorespir").handler(this::handleAllPIR);
+		router.get("/sensorespirId").handler(this::handleLastPIRId);
 		router.get("/finalescarrera").handler(this::handleAllFC);
 		router.get("/usuarios").handler(this::handleAllUsers);
 		router.get("/servos").handler(this::handleAllServos);
@@ -73,10 +74,32 @@ private AsyncSQLClient mySQLClient;
 		});
 	}
 	
+	private void handleLastPIRId(RoutingContext routingContext){
+		mySQLClient.getConnection(connection -> {
+			if (connection.succeeded()) {
+				connection.result().query("SELECT idPIR FROM sensorespir ORDER BY idPIR DESC LIMIT 1" , result -> {
+					if (result.succeeded()) {
+						String jsonResult=result.result().toJson().encodePrettily();
+						routingContext.response().end(jsonResult);
+					}else {
+						System.out.println(result.cause().getMessage());
+						routingContext.response().setStatusCode(400).end();
+					}
+					connection.result().close();
+				});
+			}else {
+				routingContext.response().end();
+				connection.result().close();
+				System.out.println(connection.cause().getMessage());
+				routingContext.response().setStatusCode(400).end();
+			}
+		});
+	}
+	
 	private void handleAllFC(RoutingContext routingContext) {
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
-				connection.result().query("SELECT idServo,nombreFC,cerrado,tempFC FROM finalescarrera" , result -> {
+				connection.result().query("SELECT idServo,cerrado,tempFC FROM finalescarrera" , result -> {
 					if (result.succeeded()) {
 						for(int i=0; i<result.result().getNumRows(); i++){
 							Long fecha=result.result().getRows().get(i).getLong("tempFC");
@@ -251,8 +274,8 @@ private AsyncSQLClient mySQLClient;
 		JsonObject body=routingContext.getBodyAsJson();
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
-				connection.result().query("INSERT INTO finalescarrera (nombreFC,cerrado,tempFC,idServo) "
-						+ "VALUES (\"" + body.getString("nombreFC") + "\"," + body.getInteger("cerrado") + "," +
+				connection.result().query("INSERT INTO finalescarrera (cerrado,tempFC,idServo) "
+						+ "VALUES (" +  body.getInteger("cerrado") + "," +
 									body.getLong("tempFC") + "," + body.getInteger("idServo") + ");", result -> {
 					if (result.succeeded()) {
 						routingContext.response()
