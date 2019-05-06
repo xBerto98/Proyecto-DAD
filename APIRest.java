@@ -46,6 +46,32 @@ private AsyncSQLClient mySQLClient;
 		router.put("/buzzers").handler(this::handlePutBuzzer);
 		router.put("/servos").handler(this::handlePutServos);
 		router.put("/tecladosnumericos").handler(this::handlePutTN);
+		router.put("/updateUsuarios/").handler(this::updateUsers);
+	}
+	
+	private void updateUsers(RoutingContext routingContext) {
+		JsonObject body=routingContext.getBodyAsJson();
+		mySQLClient.getConnection(connection -> {
+			if (connection.succeeded()) {
+				connection.result().query("UPDATE usuarios SET dentro = " + body.getInteger("dentro")
+						+ " WHERE idUsuario = " + body.getInteger("idUsuario") + ";", result -> {
+					if (result.succeeded()) {
+						routingContext.response()
+						.putHeader("content-type", "application/json")
+						.end(body.encode());
+					}else {
+						System.out.println(result.cause().getMessage());
+						routingContext.response().setStatusCode(400).end();
+					}
+					connection.result().close();
+				});
+			}else {
+				routingContext.response().end();
+				connection.result().close();
+				System.out.println(connection.cause().getMessage());
+				routingContext.response().setStatusCode(400).end();
+			}
+		});	
 	}
 	
 	private void handleAllPIR(RoutingContext routingContext) {
@@ -125,7 +151,7 @@ private AsyncSQLClient mySQLClient;
 	private void handleAllUsers(RoutingContext routingContext) {
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
-				connection.result().query("SELECT idUsuario,nombre,passUsuario FROM usuarios" , result -> {
+				connection.result().query("SELECT idUsuario,nombre,passUsuario,dentro FROM usuarios" , result -> {
 					if (result.succeeded()) {
 						String jsonResult = result.result().toJson().encodePrettily();
 						routingContext.response().end(jsonResult);
