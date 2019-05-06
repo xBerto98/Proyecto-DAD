@@ -10,10 +10,12 @@
 Servo servoMotor;
 int servoValue;
 bool manual;
+
 int valPir=LOW;
 int valFC=LOW;
 int estadoPir=LOW;
 int estadoFC=LOW;
+
 int pinBuzzer=D2;
 int pinFC=D5;
 int pinServo=D4;
@@ -41,7 +43,7 @@ int idPir;
 String nameServo;
 int pass[10];
 int dentro[10];
-int sumaDentro;
+int sumaDentro=10;
 
 NTPClient timeClient(ntpUDP,"3.es.pool.ntp.org",60*60,60*1000);
 
@@ -292,14 +294,42 @@ void makeGetRequestUsersPass(){
    deserializeJson(root, payload); //propiedades del Json por separado
 
    for(int i=0;i<root["numRows"];i++){
-     pass[i] = root["results"][i][(root["numColumns"].as<int>())-1];
+     pass[i] = root["results"][i][(root["numColumns"].as<int>())-2];
    }
 }
 }
 
-//void makeGetRequestUsersDentro(){}
+void makeGetRequestUsersDentro(){
+  HTTPClient http;
+  String url = "http://";
+  url += http_server;
+  url += ":";
+  url += http_server_port;
+  url += "/usuarios/";
+  String message = "Enviando petición GET al servidor REST. ";
+  message += url;
+  Serial.println(message);
+  http.begin(url);
+  int httpCode = http.GET();
 
-//void makePutRequestTN(){}
+  if (httpCode > 0)
+  {
+   String payload = http.getString();
+   Serial.println("payload: " + payload);
+
+   const size_t bufferSize = JSON_OBJECT_SIZE(1) + 370;
+   DynamicJsonDocument root(bufferSize);
+   deserializeJson(root, payload); //propiedades del Json por separado
+
+   sumaDentro=root["numRows"];
+
+   for(int i=0;i<root["numRows"];i++){
+     dentro[i] = root["results"][i][(root["numColumns"].as<int>())-1];
+     if(dentro[i]==0)
+      sumaDentro--;
+   }
+   }
+}
 
 void makePutRequestUpdateUsers(){
     HTTPClient http;
@@ -406,28 +436,22 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 void reconnect() {
-  // Esperamos a que el cliente se conecte al servidor
   while (!client.connected()) {
     Serial.print("Conectando al servidor MQTT...");
-    // Creamos un identificador de cliente aleatorio. Cuidado, esto debe
-    // estar previamente definido en un entorno real, ya que debemos
-    // identificar al cliente de manera uní­voca en la mayorí­a de las ocasiones
+
     clientId = "ESP8266Client-";
     clientId += String(random(0xffff), HEX);
-    // Intentamos la conexión del cliente
+
     if (client.connect(clientId.c_str())) {
       String printLine = "   Cliente " + clientId + " conectado al servidor " + mqtt_server;
       Serial.println(printLine);
-      // Publicamos un mensaje en el canal indicando que el cliente se ha
-      // conectado. Esto avisará al resto de clientes que hay un nuevo
-      // dispositivo conectado al canal. Puede ser interesante en algunos casos.
+
       String body = "Dispositivo con ID = ";
       body += clientId;
       body += " conectado al canal ";
       body += channel_name;
       client.publish(channel_name, "");
-      // Y, por último, suscribimos el cliente al canal para que pueda
-      // recibir los mensajes publicados por otros dispositivos suscritos.
+
       client.subscribe(channel_name);
     } else {
       Serial.print("Error al conectar al canal, rc=");
@@ -468,12 +492,12 @@ void loop() {
     primera tecla marca idUsuario
     guardamos en variable idUsuario
     tecleamos contraseña
-    si acierta contraseña -> putTN(acierto),getUsers(variable "dentro"),updateUsers(!dentro)
+    si acierta contraseña -> servoMotor.write(95),putTN(acierto),getUsers(variable "dentro"),updateUsers(!dentro)
     si falla contraseña -> putTN(falla,contador+1)
   */
 
   valPir=digitalRead(pinPir);
-  if((valPir==HIGH && manual==true)/* || (valPir==HIGH && sumaDentro==0*/){
+  if((valPir==HIGH && manual==true) || (valPir==HIGH && sumaDentro==0)){
     digitalWrite(pinBuzzer,HIGH);
     if(estadoPir==LOW){
       makePutRequestPir();
