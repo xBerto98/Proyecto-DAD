@@ -10,13 +10,14 @@
 Servo servoMotor;
 int servoValue;
 bool manual;
+int valPir=LOW;
+int valFC=LOW;
 int estadoPir=LOW;
-//int auto;
-
+int estadoFC=LOW;
 int pinBuzzer=D2;
+int pinFC=D5;
 int pinServo=D4;
 int pinPir=D7;
-// Update these with values suitable for your network.
 
 const char* ssid ="WI-NET 02"; //"MiFibra-0B3E";//"WI-NET 02"; //"Simon";
 const char* password ="68674052"; //"rmoxrP9m";//"68674052";//"tusmuertos";
@@ -29,17 +30,21 @@ String clientId;
 WiFiUDP ntpUDP;
 WiFiClient espClient;
 PubSubClient client(espClient);
-long lastMsg = 0;
+/*long lastMsg = 0;
 long lastMsgRest = 0;
 char msg[50];
 int value = 0;
-
+*/
 int idUsuario;
 int idServo;
+int idPir;
+String nameServo;
+int pass[10];
+int dentro[10];
+int sumaDentro;
 
 NTPClient timeClient(ntpUDP,"3.es.pool.ntp.org",60*60,60*1000);
 
-// Conexión a la red WiFi
 void setup_wifi() {
 
   delay(10);
@@ -70,25 +75,22 @@ void setup_wifi() {
 
 void makePutRequestServo(){
     HTTPClient http;
-    // Abrimos la conexión con el servidor REST y definimos la URL del recurso
     String url = "http://";
     url += http_server;
     url += ":";
     url += http_server_port;
     url += "/servos/";
-  /*  url += "41231";
     url += "/price";
-    */
+
     String message = "Enviando petición PUT al servidor REST. ";
     message += url;
     Serial.println(message);
-    // Realizamos la petición y obtenemos el código de estado de la respuesta
     http.begin(url);
 
     const size_t bufferSize = JSON_OBJECT_SIZE(1) + 370;
     DynamicJsonDocument root(bufferSize);
     root["idUsuario"] = idUsuario;
-    root["nombreServo"]="puerta principal";
+    root["nombreServo"]=nameServo;
     root["tempServo"]=timeClient.getEpochTime()-3600;
     String json_string;
     serializeJson(root, json_string);
@@ -97,38 +99,30 @@ void makePutRequestServo(){
 
     if (httpCode > 0)
     {
-     // Si el código devuelto es > 0, significa que tenemos respuesta, aunque
-     // no necesariamente va a ser positivo (podrí­a ser un código 400).
-     // Obtenemos el cuerpo de la respuesta y lo imprimimos por el puerto serie
      String payload = http.getString();
      Serial.println("payload put: " + payload);
     }
 
     Serial.printf("\nRespuesta servidor REST PUT %d\n", httpCode);
-    // Cerramos la conexión con el servidor REST
     http.end();
 }
 
 void makeGetRequestServo(){
     HTTPClient http;
-    // Abrimos la conexión con el servidor REST y definimos la URL del recurso
     String url = "http://";
     url += http_server;
     url += ":";
     url += http_server_port;
     url += "/servosId/";
+
     String message = "Enviando petición GET al servidor REST. ";
     message += url;
     Serial.println(message);
     http.begin(url);
-    // Realizamos la petición y obtenemos el código de estado de la respuesta
     int httpCode = http.GET();
 
     if (httpCode > 0)
     {
-     // Si el código devuelto es > 0, significa que tenemos respuesta, aunque
-     // no necesariamente va a ser positivo (podría ser un código 400).
-     // Obtenemos el cuerpo de la respuesta y lo imprimimos por el puerto serie
      String payload = http.getString();
      Serial.println("payload: " + payload);
 
@@ -139,13 +133,40 @@ void makeGetRequestServo(){
     }
 
     Serial.printf("\nRespuesta servidor REST %d\n", httpCode);
-    // Cerramos la conexión con el servidor REST
+    http.end();
+}
+
+void makeGetRequestPIR(){
+    HTTPClient http;
+    String url = "http://";
+    url += http_server;
+    url += ":";
+    url += http_server_port;
+    url += "/sensorespirId/";
+
+    String message = "Enviando petición GET al servidor REST. ";
+    message += url;
+    Serial.println(message);
+    http.begin(url);
+    int httpCode = http.GET();
+
+    if (httpCode > 0)
+    {
+     String payload = http.getString();
+     Serial.println("payload: " + payload);
+
+     const size_t bufferSize = JSON_OBJECT_SIZE(1) + 370;
+     DynamicJsonDocument root(bufferSize);
+     deserializeJson(root, payload); //propiedades del Json por separado
+     idPir = root["results"][0][0];
+    }
+
+    Serial.printf("\nRespuesta servidor REST %d\n", httpCode);
     http.end();
 }
 
 void makePutRequestFC(){
     HTTPClient http;
-    // Abrimos la conexión con el servidor REST y definimos la URL del recurso
     String url = "http://";
     url += http_server;
     url += ":";
@@ -155,14 +176,12 @@ void makePutRequestFC(){
     String message = "Enviando petición PUT al servidor REST. ";
     message += url;
     Serial.println(message);
-    // Realizamos la petición y obtenemos el código de estado de la respuesta
     http.begin(url);
 
     const size_t bufferSize = JSON_OBJECT_SIZE(1) + 370;
     DynamicJsonDocument root(bufferSize);
 
     root["idServo"] = idServo;
-    root["nombreFC"]="puerta principal";
     if(servoValue==0){
       root["cerrado"]=1;
     }else if(servoValue==95){
@@ -176,21 +195,16 @@ void makePutRequestFC(){
 
     if (httpCode > 0)
     {
-     // Si el código devuelto es > 0, significa que tenemos respuesta, aunque
-     // no necesariamente va a ser positivo (podrí­a ser un código 400).
-     // Obtenemos el cuerpo de la respuesta y lo imprimimos por el puerto serie
      String payload = http.getString();
      Serial.println("payload put: " + payload);
     }
 
     Serial.printf("\nRespuesta servidor REST PUT %d\n", httpCode);
-    // Cerramos la conexión con el servidor REST
     http.end();
 }
 
 void makePutRequestPir(){
     HTTPClient http;
-    // Abrimos la conexión con el servidor REST y definimos la URL del recurso
     String url = "http://";
     url += http_server;
     url += ":";
@@ -200,7 +214,6 @@ void makePutRequestPir(){
     String message = "Enviando petición PUT al servidor REST. ";
     message += url;
     Serial.println(message);
-    // Realizamos la petición y obtenemos el código de estado de la respuesta
     http.begin(url);
 
     const size_t bufferSize = JSON_OBJECT_SIZE(1) + 370;
@@ -215,27 +228,117 @@ void makePutRequestPir(){
 
     if (httpCode > 0)
     {
-     // Si el código devuelto es > 0, significa que tenemos respuesta, aunque
-     // no necesariamente va a ser positivo (podrí­a ser un código 400).
-     // Obtenemos el cuerpo de la respuesta y lo imprimimos por el puerto serie
      String payload = http.getString();
      Serial.println("payload put: " + payload);
     }
 
     Serial.printf("\nRespuesta servidor REST PUT %d\n", httpCode);
-    // Cerramos la conexión con el servidor REST
     http.end();
 }
 
-// Método llamado por el cliente MQTT cuando se recibe un mensaje en un canal
-// al que se encuentra suscrito. Los parámetros indican el canal (topic),
-// el contenido del mensaje (payload) y su tamaño en bytes (length)
+void makePutRequestBuzzer(){
+    HTTPClient http;
+    String url = "http://";
+    url += http_server;
+    url += ":";
+    url += http_server_port;
+    url += "/buzzers/";
+
+    String message = "Enviando petición PUT al servidor REST. ";
+    message += url;
+    Serial.println(message);
+    http.begin(url);
+
+    const size_t bufferSize = JSON_OBJECT_SIZE(1) + 370;
+    DynamicJsonDocument root(bufferSize);
+
+    root["idPIR"]=idPir;
+    root["tempBuzz"]=timeClient.getEpochTime()-3600;
+    String json_string;
+    serializeJson(root, json_string);
+
+    int httpCode = http.PUT(json_string);
+
+    if (httpCode > 0)
+    {
+     String payload = http.getString();
+     Serial.println("payload put: " + payload);
+    }
+
+    Serial.printf("\nRespuesta servidor REST PUT %d\n", httpCode);
+    http.end();
+}
+
+void makeGetRequestUsersPass(){
+  HTTPClient http;
+  String url = "http://";
+  url += http_server;
+  url += ":";
+  url += http_server_port;
+  url += "/usuarios/";
+  String message = "Enviando petición GET al servidor REST. ";
+  message += url;
+  Serial.println(message);
+  http.begin(url);
+  int httpCode = http.GET();
+
+  if (httpCode > 0)
+  {
+   String payload = http.getString();
+   Serial.println("payload: " + payload);
+
+   const size_t bufferSize = JSON_OBJECT_SIZE(1) + 370;
+   DynamicJsonDocument root(bufferSize);
+   deserializeJson(root, payload); //propiedades del Json por separado
+
+   for(int i=0;i<root["numRows"];i++){
+     pass[i] = root["results"][i][(root["numColumns"].as<int>())-1];
+   }
+}
+}
+
+//void makeGetRequestUsersDentro(){}
+
+//void makePutRequestTN(){}
+
+void makePutRequestUpdateUsers(){
+    HTTPClient http;
+    String url = "http://";
+    url += http_server;
+    url += ":";
+    url += http_server_port;
+    url += "/updateUsuarios/";
+
+    String message = "Enviando petición PUT al servidor REST. ";
+    message += url;
+    Serial.println(message);
+    http.begin(url);
+
+    const size_t bufferSize = JSON_OBJECT_SIZE(1) + 370;
+    DynamicJsonDocument root(bufferSize);
+
+    root["idUsuario"]=idUsuario;
+    root["dentro"]=dentro[idUsuario-1];
+    String json_string;
+    serializeJson(root, json_string);
+
+    int httpCode = http.PUT(json_string);
+
+    if (httpCode > 0)
+    {
+     String payload = http.getString();
+     Serial.println("payload put: " + payload);
+    }
+
+    Serial.printf("\nRespuesta servidor REST PUT %d\n", httpCode);
+    http.end();
+}
+
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Mensaje recibido [canal: ");
   Serial.print(topic);
   Serial.print("] ");
-  // Leemos la información del cuerpo del mensaje. Para ello no solo necesitamos
-  // el puntero al mensaje, si no su tamaño.
+
   for (int i = 0; i < length; i++) {
     Serial.print((char)payload[i]);
   }
@@ -246,31 +349,51 @@ void callback(char* topic, byte* payload, unsigned int length) {
   deserializeJson(doc, payload, length);
   const char* action = doc["action"];
   idUsuario = doc["idUsuario"];
+  nameServo = doc["name"].as<String>();
   Serial.printf("Acción %s\n", action);
-  // Encendemos un posible switch digital (un diodo led por ejemplo) si el
-  // contenido del cuerpo es 'on'
+
   if (strcmp(action, "servo_on") == 0) {
+    if(servoValue==0){
     servoValue=95;
     servoMotor.write(servoValue);
     delay(1000);
     makePutRequestServo();
     delay(100);
-    makeGetRequestServo();
-    delay(100);
-    makePutRequestFC();
-    delay(100);
+    valFC=digitalRead(pinFC);
+    //if(valFC==LOW){
+      //if(estadoFC==LOW){
+      makeGetRequestServo();
+      delay(100);
+      makePutRequestFC();
+      delay(100);
+      estadoFC=HIGH;
+      //}
+    //}
     Serial.println("Detectada acción de apertura de puerta");
+  }else{
+    Serial.println("La puerta ya estaba abierta");
+  }
   } else if (strcmp(action, "servo_off") == 0) {
+    if(servoValue==95){
     servoValue=0;
     servoMotor.write(servoValue);
     delay(1000);
     makePutRequestServo();
     delay(100);
-    makeGetRequestServo();
-    delay(100);
-    makePutRequestFC();
-    delay(100);
+    valFC=digitalRead(pinFC);
+    //if(valFC==HIGH){
+    //if(estadoFC==HIGH){
+      makeGetRequestServo();
+      delay(100);
+      makePutRequestFC();
+      delay(100);
+      estadoFC=LOW;
+      //}
+    //}
     Serial.println("Detectada acción de cierre de puerta");
+  }else{
+    Serial.println("La puerta ya estaba cerrada");
+  }
   }else if(strcmp(action, "pir_manual_on") == 0){
     manual=true;
     Serial.println("Detecada acción de activación manual del sensor PIR");
@@ -282,8 +405,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
 }
 
-// Función para la reconexión con el servidor MQTT y la suscripción al canal
-// necesario. También se fija el identificador del cliente
 void reconnect() {
   // Esperamos a que el cliente se conecte al servidor
   while (!client.connected()) {
@@ -317,51 +438,49 @@ void reconnect() {
   }
 }
 
-// Método de inicialización de la lógica
 void setup() {
-  // Ajustamos el pinmode del pin de salida para poder controlar un
-  // switch digial (dido led por ejemplo)
-  //pinMode(BUILTIN_LED, OUTPUT);
   pinMode(pinPir,INPUT);
+  pinMode(pinFC,INPUT);
   pinMode(pinBuzzer,OUTPUT);
   servoMotor.attach(pinServo);
+
   servoMotor.write(0);
-  // Fijamos el baudrate del puerto de comunicación serie
+
   Serial.begin(115200);
-  // Nos conectamos a la red WiFi
+
   setup_wifi();
   timeClient.begin();
-  // Indicamos la dirección y el puerto del servidor donde se encuentra el
-  // servidor MQTT
   client.setServer(mqtt_server, 1883);
-  // Fijamos la función de callback que se ejecutará cada vez que se publique
-  // un mensaje por parte de otro dispositivo en un canal al que el cliente
-  // actual se encuentre suscrito
   client.setCallback(callback);
 }
 
 void loop() {
   timeClient.update();
   delay(100);
-  // Nos conectamos al servidor MQTT en caso de no estar conectado previamente
+
   if (!client.connected()) {
     reconnect();
   }
-  // Esperamos (de manera figurada) a que algún cliente suscrito al canal
-  // publique un mensaje que será recibido por el dispositivo actual
+
   client.loop();
 
-  int valPir=digitalRead(pinPir);
+  /*reconocimiento de usuarios
+    primera tecla marca idUsuario
+    guardamos en variable idUsuario
+    tecleamos contraseña
+    si acierta contraseña -> putTN(acierto),getUsers(variable "dentro"),updateUsers(!dentro)
+    si falla contraseña -> putTN(falla,contador+1)
+  */
 
-  //makeGetRequestUpdateTN();
-  if((valPir==HIGH && manual==true)/* || (valPir==HIGH && )*/){
+  valPir=digitalRead(pinPir);
+  if((valPir==HIGH && manual==true)/* || (valPir==HIGH && sumaDentro==0*/){
     digitalWrite(pinBuzzer,HIGH);
     if(estadoPir==LOW){
       makePutRequestPir();
-      //delay(100);
-      //makeGetRequestBuzzer();
-      //delay(100);
-      //makePutRequestBuzzer();
+      delay(100);
+      makeGetRequestPIR();
+      delay(100);
+      makePutRequestBuzzer();
       estadoPir=HIGH;
     }
   }else{
@@ -373,7 +492,7 @@ void loop() {
   // Cada 2 segundos publicaremos un mensaje en el canal procedente del cliente
   // actual. Esto se hace sin bloquear el loop ya que de lo contrario afectarí­a
   // a la recepción de los mensajes MQTT
-  long now = millis();
+  /*long now = millis();
   if (now - lastMsg > 2000) {
     lastMsg = now;
     ++value;
@@ -389,4 +508,5 @@ void loop() {
     Serial.println(output);
     client.publish(channel_name, output.c_str());
   }
+  */
 }
