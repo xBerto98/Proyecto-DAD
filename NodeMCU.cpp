@@ -6,7 +6,6 @@
 #include <PubSubClient.h>
 #include <ESP8266HTTPClient.h>
 #include <ArduinoJson.h>
-//#include <stdio.h>
 
 Servo servoMotor;
 int servoValue;
@@ -24,11 +23,11 @@ int pinFC=D5;
 int pinServo=D4;
 int pinPir=D7;
 
-const char* ssid ="SALA DE ESTUDIOS"; //"MiFibra-0B3E";//"WI-NET 02"; //"Simon";
-const char* password ="HyacFQrCcvvLuM6axKzD"; //"rmoxrP9m";//"68674052";//"tusmuertos";
+const char* ssid ="WI-NET 02";; //"MiFibra-0B3E"; //"Simon";
+const char* password ="68674052"; //"rmoxrP9m"; //"tusmuertos";
 const char* channel_name = "topic_2";
-const char* mqtt_server ="192.168.1.172"; //"192.168.1.59";
-const char* http_server ="192.168.1.172"; //"192.168.1.59";
+const char* mqtt_server = "192.168.1.110";//"192.168.1.172"; //"192.168.1.59";
+const char* http_server = "192.168.1.110";//"192.168.1.172"; //"192.168.1.59";
 const char* http_server_port = "8090";
 String clientId;
 
@@ -87,7 +86,6 @@ void makePutRequestServo(){
     url += ":";
     url += http_server_port;
     url += "/servos/";
-    url += "/price";
 
     String message = "Enviando petición PUT al servidor REST. ";
     message += url;
@@ -389,6 +387,7 @@ void makePutRequestTN(){
   root["passTN"]=passRecv;
   root["tempTN"]=timeClient.getEpochTime()-3600;
   root["acierto"]=acierto;
+
   String json_string;
   serializeJson(root, json_string);
 
@@ -511,6 +510,8 @@ void setup() {
   servoMotor.write(0);
 
   Serial.begin(115200);
+  //Serial.setTimeout(10000); //esto de momento dejalo comentado para probar cosas, pero habría que ponerlo pa que 
+                              //le de tiempo a la peña meter la contraseña y eso
 
   setup_wifi();
   timeClient.begin();
@@ -528,57 +529,48 @@ void loop() {
 
   client.loop();
 
-  /*reconocimiento de usuarios
-    primera tecla marca idUsuario
-    guardamos en variable idUsuario
-    tecleamos contraseña
-    si acierta contraseña -> servoMotor.write(95),putTN(acierto),getUsers(variable "dentro"),updateUsers(!dentro)
-    si falla contraseña -> putTN(falla,contador+1)
-  */
-
   if(Serial.available()){
     idUsuario = Serial.parseInt();
     Serial.println(idUsuario);
     a = 0;
   }
 
-  while(a==0){ //Esto se podría cambiar por un if (y se solucionaría el problema posiblemente)
-
-    makeGetRequestUsersPass();
-
+  if(a==0){
+    Serial.print("Introduzca contraseña: ");
     while(!Serial.available()); //Espera hasta que se envía algún dato desde el arduino.
-      Serial.print("Introduzca contraseña: ");
       while(passRecv < 999){
         while(!Serial.available());
         passRecv = passRecv * 10 + Serial.parseInt();
         Serial.print(passRecv);
       }
 
+      makeGetRequestUsersPass(); //esto es para que se rellenen las variables dentro[] y pass[] antes de comprobar
+      delay(100);
+      makeGetRequestUsersDentro();
+      delay(100);
+
       if(passRecv == pass[idUsuario-1]){
         servoMotor.write(95);
         acierto = 1;
+        delay(100);
         makePutRequestTN();
+        dentro[idUsuario-1]=!dentro[idUsuario-1];
         delay(100);
-        makeGetRequestUsersDentro();
-        delay(100);
-        if(dentro[idUsuario-1]==0){
-          dentro[idUsuario-1]=!dentro[idUsuario-1];
-        }else{
-          dentro[idUsuario-1]=!dentro[idUsuario-1];
-        }
         makePutRequestUpdateUsers();
         Serial.write("CORRECTO :D");
         delay(1000);
+
       } else {
         acierto = 0;
+        delay(100);
         makePutRequestTN();
         Serial.write("INCORRECTO ):<");
         delay(1000);
-      }
 
-    a=1;
-    passRecv = 0; // Esto es porque sino no la proxima vez que se introduzca una contraseña
-                  // se salta el while(passRecv<999)
+      }
+      passRecv = 0; // Esto es porque sino no la proxima vez que se introduzca una contraseña
+                    // se salta el while(passRecv<999)
+      a=1;
   }
 
   valPir=digitalRead(pinPir);
