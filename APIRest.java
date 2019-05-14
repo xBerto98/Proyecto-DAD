@@ -199,7 +199,7 @@ private AsyncSQLClient mySQLClient;
 	private void handleAllTNv2(RoutingContext routingContext) {
 		mySQLClient.getConnection(connection -> {
 			if(connection.succeeded()) {
-				connection.result().query("SELECT idUsuario, cont, acierto,tempTN FROM dad.tecladosnumericos "
+				connection.result().query("SELECT idUsuario,acierto,tempTN FROM dad.tecladosnumericos "
 							, result -> {
 					if(result.succeeded()) {
 						for(int i=0; i<result.result().getNumRows(); i++){
@@ -378,10 +378,9 @@ private AsyncSQLClient mySQLClient;
 		JsonObject body=routingContext.getBodyAsJson();
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
-				connection.result().query("INSERT INTO tecladosnumericos (passTN,tempTN,idUsuario,cont,acierto) "
-						+ "VALUES (\"" + body.getString("passTN") + "\"," + body.getLong("tempTN") + "," + 
-									body.getInteger("idUsuario") + "," + body.getInteger("cont") + 
-									"," + body.getInteger("acierto") + ");", result -> {
+				connection.result().query("INSERT INTO tecladosnumericos (passTN,tempTN,idUsuario,acierto) "
+						+ "VALUES (" + body.getInteger("passTN") + "," + body.getLong("tempTN") + "," + 
+									body.getInteger("idUsuario") + "," + body.getInteger("acierto") + ");", result -> {
 					if (result.succeeded()) {
 						routingContext.response()
 						.putHeader("content-type", "application/json")
