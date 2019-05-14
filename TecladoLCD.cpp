@@ -79,9 +79,16 @@ void loop() {
     introducePass();
     lcd.clear();
     lcd.setCursor(0, 0);
-    while(!Serial.available());
-    lcd.print(Serial.readString());
-    delay(1000);
+    delay(500);
+    while(!Serial.available()); //Esto es para que muestre el lcd acierto/fallo (hay que acabarlo)
+    int acierto = Serial.parseInt();
+    Serial.print(acierto);
+    if(acierto==1){
+      lcd.print("CORRECTO :D");
+    } else {
+      lcd.print("INCORRECTO >:(");
+    }
+    delay(1500);
       }
 //     Serial.println(customKey);
   }
@@ -107,15 +114,11 @@ void introducePass(){
   }
   if(Serial.available()){
     Serial.write(pass);
-    Serial.print(pass);
-    Serial.print("\nIntroduzca usuario: ");
+    //Serial.print("\nIntroduzca usuario: ");
   }
 
-  delay(500);
 
-  if(Serial.available()){
-    lcd.print(Serial.read());
-  }
 //  Serial.println(pass);
 //  Serial.println(id);
 }
+
