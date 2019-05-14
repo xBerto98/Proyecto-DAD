@@ -23,11 +23,11 @@ int pinFC=D5;
 int pinServo=D4;
 int pinPir=D7;
 
-const char* ssid ="WI-NET 02";; //"MiFibra-0B3E"; //"Simon";
-const char* password ="68674052"; //"rmoxrP9m"; //"tusmuertos";
+const char* ssid ="SIMON"; //"MiFibra-0B3E"; //"Simon";
+const char* password ="noentranid10s"; //"rmoxrP9m"; //"tusmuertos";
 const char* channel_name = "topic_2";
-const char* mqtt_server = "192.168.1.110";//"192.168.1.172"; //"192.168.1.59";
-const char* http_server = "192.168.1.110";//"192.168.1.172"; //"192.168.1.59";
+const char* mqtt_server = "192.168.0.162";//"192.168.1.172"; //"192.168.1.59";
+const char* http_server = "192.168.0.162";//"192.168.1.172"; //"192.168.1.59";
 const char* http_server_port = "8090";
 String clientId;
 
@@ -506,17 +506,17 @@ void setup() {
   pinMode(pinFC,INPUT);
   pinMode(pinBuzzer,OUTPUT);
   servoMotor.attach(pinServo);
-
   servoMotor.write(0);
 
   Serial.begin(115200);
-  //Serial.setTimeout(10000); //esto de momento dejalo comentado para probar cosas, pero habría que ponerlo pa que 
+  //Serial.setTimeout(10000); //esto de momento dejalo comentado para probar cosas, pero habría que ponerlo pa que
                               //le de tiempo a la peña meter la contraseña y eso
 
   setup_wifi();
   timeClient.begin();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
+  Serial.print("Introduzca usuario: ");
 }
 
 void loop() {
@@ -531,19 +531,16 @@ void loop() {
 
   if(Serial.available()){
     idUsuario = Serial.parseInt();
+    if(idUsuario>0){
     Serial.println(idUsuario);
-    a = 0;
-  }
-
-  if(a==0){
     Serial.print("Introduzca contraseña: ");
     while(!Serial.available()); //Espera hasta que se envía algún dato desde el arduino.
       while(passRecv < 999){
         while(!Serial.available());
-        passRecv = passRecv * 10 + Serial.parseInt();
-        Serial.print(passRecv);
+        int c = Serial.parseInt();
+        passRecv = passRecv * 10 + c;
+        Serial.print(c);
       }
-
       makeGetRequestUsersPass(); //esto es para que se rellenen las variables dentro[] y pass[] antes de comprobar
       delay(100);
       makeGetRequestUsersDentro();
@@ -557,20 +554,17 @@ void loop() {
         dentro[idUsuario-1]=!dentro[idUsuario-1];
         delay(100);
         makePutRequestUpdateUsers();
-        Serial.write("CORRECTO :D");
-        delay(1000);
-
       } else {
         acierto = 0;
         delay(100);
         makePutRequestTN();
-        Serial.write("INCORRECTO ):<");
-        delay(1000);
-
+      }
+      if(Serial.available()){
+        Serial.write(acierto);
       }
       passRecv = 0; // Esto es porque sino no la proxima vez que se introduzca una contraseña
                     // se salta el while(passRecv<999)
-      a=1;
+    }
   }
 
   valPir=digitalRead(pinPir);
@@ -611,3 +605,4 @@ void loop() {
   }
   */
 }
+
