@@ -1,6 +1,10 @@
-import java.util.*;
+package hola;
+import java.util.Calendar;
+import java.util.Date;
+
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
+import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.asyncsql.AsyncSQLClient;
 import io.vertx.ext.asyncsql.MySQLClient;
@@ -47,6 +51,7 @@ private AsyncSQLClient mySQLClient;
 		router.put("/servos").handler(this::handlePutServos);
 		router.put("/tecladosnumericos").handler(this::handlePutTN);
 		router.put("/updateUsuarios/").handler(this::updateUsers);
+		router.put("/abrePuerta").handler(this::handleAbrePuerta);
 	}
 	
 	private void updateUsers(RoutingContext routingContext) {
@@ -405,6 +410,23 @@ private AsyncSQLClient mySQLClient;
 		calendar.setTimeInMillis(fecha*1000);
 		return calendar.getTime();
 		
+	}
+	
+	private void handleAbrePuerta(RoutingContext routingContext){
+		JsonObject body=routingContext.getBodyAsJson();
+		mySQLClient.getConnection(connection -> {
+			if (connection.succeeded()) {
+				body.put("action","servo_on");
+				EventBus eventBus = getVertx().eventBus();
+				eventBus.send("mensaje", body);
+				routingContext.response().setStatusCode(200).end();
+			}else {
+				routingContext.response().end();
+				connection.result().close();
+				System.out.println(connection.cause().getMessage());
+				routingContext.response().setStatusCode(400).end();
+			}
+		});	
 	}
 
 }
