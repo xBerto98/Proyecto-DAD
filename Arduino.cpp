@@ -6,13 +6,12 @@ const int USERS = 2;
 String user;
 int id;
 int noRecon = 0;
-
+int acierto = 0;
 
 const int rs = 7, en = 6, d4 = 5, d5 = 4, d6 = 3, d7 = 2;
 LiquidCrystal lcd(rs, en, d4, d5, d6, d7);
 
 char customKey;
-int cont[USERS] = {3, 3}; //Contador de intentos de los usuarios
 
 const byte ROWS = 4;
 const byte COLS = 4;
@@ -58,6 +57,7 @@ void loop() {
        if(Serial.available()){
          Serial.write(id);
        }
+       acierto = 1;
        noRecon = 0;
     //     Serial.print("Bienvenido " + user);
     //     Serial.print(id);
@@ -67,6 +67,7 @@ void loop() {
          if(Serial.available()){
            Serial.write(id);
          }
+         acierto = 1;
        } else{
          lcd.print("No recon.");
          delay(1000);
@@ -79,10 +80,6 @@ void loop() {
     introducePass();
     lcd.clear();
     lcd.setCursor(0, 0);
-    delay(500);
-    while(!Serial.available()); //Esto es para que muestre el lcd acierto/fallo (hay que acabarlo)
-    int acierto = Serial.parseInt();
-    Serial.print(acierto);
     if(acierto==1){
       lcd.print("CORRECTO :D");
     } else {
@@ -121,4 +118,3 @@ void introducePass(){
 //  Serial.println(pass);
 //  Serial.println(id);
 }
-
