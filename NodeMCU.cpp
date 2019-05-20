@@ -11,8 +11,6 @@ Servo servoMotor;
 int servoValue;
 bool manual;
 int acierto;
-bool asd=true;
-
 int valPir=LOW;
 int valFC=LOW;
 int estadoPir=LOW;
@@ -23,11 +21,11 @@ int pinFC=D5;
 int pinServo=D4;
 int pinPir=D7;
 
-const char* ssid ="Simon"; //"MiFibra-0B3E"; //"Simon";
-const char* password ="tusmuertos"; //"rmoxrP9m"; //"tusmuertos";
+const char* ssid ="Tule"; //"MiFibra-0B3E"; //"Simon";
+const char* password ="00001234"; //"rmoxrP9m"; //"tusmuertos";
 const char* channel_name = "topic_2";
-const char* mqtt_server = "192.168.43.25";//"192.168.1.172"; //"192.168.1.59";
-const char* http_server = "192.168.43.25";//"192.168.1.172"; //"192.168.1.59";
+const char* mqtt_server = "192.168.43.235";//"192.168.1.172"; //"192.168.1.59";
+const char* http_server = "192.168.43.235";//"192.168.1.172"; //"192.168.1.59";
 const char* http_server_port = "8090";
 String clientId;
 
@@ -274,7 +272,37 @@ void makePutRequestBuzzer(){
     http.end();
 }
 
-void makeGetRequestUsersDentroYPass(){
+void makeGetRequestUsersPass(){
+  HTTPClient http;
+  String url = "http://";
+  url += http_server;
+  url += ":";
+  url += http_server_port;
+  url += "/usuarios/";
+  String message = "Enviando petición GET al servidor REST. ";
+  message += url;
+  Serial.println(message);
+  http.begin(url);
+  int httpCode = http.GET();
+
+  if (httpCode > 0)
+  {
+   String payload = http.getString();
+   Serial.println("payload: " + payload);
+
+   const size_t bufferSize = JSON_OBJECT_SIZE(1) + 370;
+   DynamicJsonDocument root(bufferSize);
+   deserializeJson(root, payload); //propiedades del Json por separado
+
+   sumaDentro=root["numRows"];
+
+   for(int i=0;i<root["numRows"];i++){
+     pass[i] = root["results"][i][(root["numColumns"].as<int>())-2];
+   }
+   }
+}
+
+void makeGetRequestUsersDentro(){
   HTTPClient http;
   String url = "http://";
   url += http_server;
@@ -300,7 +328,6 @@ void makeGetRequestUsersDentroYPass(){
 
    for(int i=0;i<root["numRows"];i++){
      dentro[i] = root["results"][i][(root["numColumns"].as<int>())-1];
-     pass[i] = root["results"][i][(root["numColumns"].as<int>())-2];
      if(dentro[i]==0)
       sumaDentro--;
    }
@@ -482,12 +509,14 @@ void setup() {
   servoMotor.write(0);
 
   Serial.begin(115200);
-  Serial.setTimeout(10000);
+  //Serial.setTimeout(10000); //esto de momento dejalo comentado para probar cosas, pero habría que ponerlo pa que
+                              //le de tiempo a la peña meter la contraseña y eso
 
   setup_wifi();
   timeClient.begin();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
+  Serial.print("Introduzca usuario: ");
 }
 
 void loop() {
@@ -500,27 +529,39 @@ void loop() {
 
   client.loop();
 
+
+
   if(Serial.available()){
     idUsuario = Serial.parseInt();
     if(idUsuario>0){
+    Serial.println(idUsuario);
     Serial.print("Introduzca contraseña: ");
     while(!Serial.available()); //Espera hasta que se envía algún dato desde el arduino.
       while(passRecv < 999){
         while(!Serial.available());
         int c = Serial.parseInt();
         passRecv = passRecv * 10 + c;
+        Serial.print(c);
       }
 
-      makeGetRequestUsersDentroYPass();  //esto es para que se rellenen las variables dentro[] y pass[] antes de comprobar
+      makeGetRequestUsersPass();  //esto es para que se rellenen las variables dentro[] y pass[] antes de comprobar
       delay(100);
 
       if(passRecv == pass[idUsuario-1]){
-        servoMotor.write(95);
+        if(servoValue==0){
+        servoValue=95;
+        servoMotor.write(servoValue);
+      }
         acierto = 1;
-        if(acierto)
-          dentro[idUsuario-1]=!dentro[idUsuario-1];
+        if(acierto){
+        makeGetRequestUsersDentro();
+        delay(100);
+        dentro[idUsuario-1]=!dentro[idUsuario-1];
         delay(100);
         makePutRequestUpdateUsers();
+        delay(100);
+        makeGetRequestUsersDentro();
+        }
       } else {
         acierto = 0;
         delay(100);
