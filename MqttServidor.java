@@ -1,4 +1,3 @@
-package hola;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -11,7 +10,6 @@ import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.asyncsql.AsyncSQLClient;
 import io.vertx.mqtt.MqttClient;
 import io.vertx.mqtt.MqttClientOptions;
 import io.vertx.mqtt.MqttEndpoint;
@@ -22,8 +20,6 @@ import io.vertx.mqtt.messages.MqttPublishMessage;
 public class MqttServidor extends AbstractVerticle{
 
 	private static Multimap<String, MqttEndpoint> clientTopics;
-
-	AsyncSQLClient mySQLClient;
 	
 	public void start(Future<Void> startFuture) {
 		clientTopics = HashMultimap.create();
@@ -75,10 +71,20 @@ public class MqttServidor extends AbstractVerticle{
 							System.out.println("-----" + mqttClient.clientId());
 							if (!message.getString("clientId").equals(mqttClient.clientId()))
 								System.out.println("Mensaje recibido por el cliente: " + arg0.payload().toString());
-							getVertx().eventBus().consumer("mensaje", message2 -> {
-								String s = (String) message2.body();
-								mqttClient.publish("topic_2", Buffer.buffer(s), MqttQoS.AT_LEAST_ONCE, false, false);
-							});
+							
+							//Esto creo que debería ir fuera de aquí. 
+							//Si no, nunca se van a pasar los mensajes los verticles y no se va a publicar en el topic
+							try {
+								Thread.sleep(4000);
+							} catch (InterruptedException e) {
+								e.printStackTrace();
+							}
+							
+							vertx.eventBus().consumer("mqtt-action", message2 -> {
+							String s = message2.body().toString();
+							System.out.println(s);
+							mqttClient.publish("topic_2", Buffer.buffer(s), MqttQoS.AT_LEAST_ONCE, false, false);
+						});
 							
 						}
 					});
@@ -88,7 +94,7 @@ public class MqttServidor extends AbstractVerticle{
 			/*
 			 * Este timer COMPRUEBA cada 3 segundos si queremos enviar algún mensaje. En tal caso, lo envía.
 			 */
-			Scanner scan = new Scanner(System.in);
+			/*Scanner scan = new Scanner(System.in);
 			
 			new Timer().scheduleAtFixedRate(new TimerTask() {
 
@@ -138,9 +144,11 @@ public class MqttServidor extends AbstractVerticle{
 						}
 					}
 				}
-			}, 1000, 3000);
+			}, 1000, 3000);*/
 		});
+		
 	}
+	
 
 	/**
 	 * MÃ©todo encargado de inicializar el servidor y ajustar todos los manejadores
@@ -283,8 +291,7 @@ public class MqttServidor extends AbstractVerticle{
 			 * Suscribimos un handler cuando se solicite una publicaciÃ³n de un mensaje en un
 			 * topic
 			 */
-//			handleMessage(message, endpoint);
-			handleMessageServo(message, endpoint);
+			handleMessage(message, endpoint);
 		}).publishReleaseHandler(messageId -> {
 			/*
 			 * Suscribimos un handler cuando haya finalizado la publicaciÃ³n del mensaje en
@@ -343,34 +350,6 @@ public class MqttServidor extends AbstractVerticle{
 			endpoint.publishRelease(message.messageId());
 		}
 	}
-	
-	private static void handleMessageServo(MqttPublishMessage message, MqttEndpoint endpoint) {
-		System.out.println("Mensaje publicado por el cliente " + endpoint.clientIdentifier() + " en el topic "
-				+ message.topicName());
-		System.out.println("	Contenido del mensaje: " + message.payload().toString());
-
-		System.out.println("Origen: " + endpoint.clientIdentifier());
-		for (MqttEndpoint client : clientTopics.get(message.topicName())) {
-			System.out.println("Destino: " + client.clientIdentifier());
-			if (!client.clientIdentifier().equals(endpoint.clientIdentifier()))
-				try {
-					client.publish(message.topicName(), message.payload(), message.qosLevel(), message.isDup(),
-							message.isRetain()).publishReleaseHandler(idHandler -> {
-								client.publishComplete(idHandler);
-							});
-				} catch (Exception e) {
-					System.out.println("Error, no se pudo enviar mensaje.");
-				}
-		}
-
-		if (message.qosLevel() == MqttQoS.AT_LEAST_ONCE) {
-			String topicName = message.topicName();
-			switch (topicName) {
-			}
-			endpoint.publishAcknowledge(message.messageId());
-		} else if (message.qosLevel() == MqttQoS.EXACTLY_ONCE) {
-			endpoint.publishRelease(message.messageId());
-		}
-	}
 
 }
+
