@@ -1,4 +1,3 @@
-package hola;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -52,6 +51,9 @@ private AsyncSQLClient mySQLClient;
 		router.put("/tecladosnumericos").handler(this::handlePutTN);
 		router.put("/updateUsuarios/").handler(this::updateUsers);
 		router.put("/abrePuerta").handler(this::handleAbrePuerta);
+		router.put("/cierraPuerta").handler(this::handleCierraPuerta);
+		router.put("/activaPIR").handler(this::handleActivaPIR);
+		router.put("/desactivaPIR").handler(this::handleDesactivaPIR);
 	}
 	
 	private void updateUsers(RoutingContext routingContext) {
@@ -417,8 +419,62 @@ private AsyncSQLClient mySQLClient;
 		mySQLClient.getConnection(connection -> {
 			if (connection.succeeded()) {
 				body.put("action","servo_on");
+				System.out.println(body.encodePrettily());
 				EventBus eventBus = getVertx().eventBus();
-				eventBus.send("mensaje", body);
+				eventBus.send("mqtt-action", body);
+				routingContext.response().setStatusCode(200).end();
+			}else {
+				routingContext.response().end();
+				connection.result().close();
+				System.out.println(connection.cause().getMessage());
+				routingContext.response().setStatusCode(400).end();
+			}
+		});	
+	}
+	
+	private void handleCierraPuerta(RoutingContext routingContext){
+		JsonObject body=routingContext.getBodyAsJson();
+		mySQLClient.getConnection(connection -> {
+			if (connection.succeeded()) {
+				body.put("action","servo_off");
+				EventBus eventBus = getVertx().eventBus();
+				eventBus.send("mqtt-action", body);
+				routingContext.response().setStatusCode(200).end();
+			}else {
+				routingContext.response().end();
+				connection.result().close();
+				System.out.println(connection.cause().getMessage());
+				routingContext.response().setStatusCode(400).end();
+			}
+		});	
+	}
+	
+	private void handleActivaPIR(RoutingContext routingContext){
+		JsonObject body=routingContext.getBodyAsJson();
+		mySQLClient.getConnection(connection -> {
+			if (connection.succeeded()) {
+				body.put("action","pir_manual_on");
+				System.out.println(body.encodePrettily());
+				
+				EventBus eventBus = vertx.eventBus();
+				eventBus.send("mqtt-action", body);
+				routingContext.response().setStatusCode(200).end();
+			}else {
+				routingContext.response().end();
+				connection.result().close();
+				System.out.println(connection.cause().getMessage());
+				routingContext.response().setStatusCode(400).end();
+			}
+		});	
+	}
+	
+	private void handleDesactivaPIR(RoutingContext routingContext){
+		JsonObject body=routingContext.getBodyAsJson();
+		mySQLClient.getConnection(connection -> {
+			if (connection.succeeded()) {
+				body.put("action","pir_manual_off");
+				EventBus eventBus = getVertx().eventBus();
+				eventBus.send("mqtt-action", body);
 				routingContext.response().setStatusCode(200).end();
 			}else {
 				routingContext.response().end();
