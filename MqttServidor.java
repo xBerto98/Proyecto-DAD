@@ -1,3 +1,4 @@
+package hola;
 import java.util.*;
 import java.util.stream.Stream;
 
@@ -17,8 +18,12 @@ import io.vertx.mqtt.MqttServer;
 import io.vertx.mqtt.MqttTopicSubscription;
 import io.vertx.mqtt.messages.MqttPublishMessage;
 
+
 public class MqttServidor extends AbstractVerticle{
 
+	int i = 1;
+	String topic = "topic_" + i;
+	
 	private static Multimap<String, MqttEndpoint> clientTopics;
 	
 	public void start(Future<Void> startFuture) {
@@ -43,14 +48,17 @@ public class MqttServidor extends AbstractVerticle{
 			 * queréis suscribir. Además, podéis indicar el QoS, en este caso AT_LEAST_ONCE
 			 * para asegurarnos de que el mensaje llega a su destinatario.
 			 */
-			mqttClient.subscribe("topic_2", MqttQoS.AT_LEAST_ONCE.value(), handler -> {
+			
+			
+			
+			mqttClient.subscribe(topic, MqttQoS.AT_LEAST_ONCE.value(), handler -> {
 				if (handler.succeeded()) {
 					/*
 					 * En este punto el cliente ya está suscrito al servidor, puesto que se ha
 					 * ejecutado la función de handler
 					 */
-					System.out.println("Cliente " + mqttClient.clientId() + " suscrito correctamente al canal topic_2");
-
+					System.out.println("Cliente " + mqttClient.clientId() + " suscrito correctamente al canal " + topic);
+					i++;
 					/*
 					 * Además de suscribirnos al servidor, registraremos un manejador para
 					 * interceptar los mensajes que lleguen a nuestro cliente. De manera que el
@@ -59,6 +67,7 @@ public class MqttServidor extends AbstractVerticle{
 					 * servidor reenvía el mensaje a esos clientes -> los clientes (en este caso el
 					 * cliente actual) recibe el mensaje y lo procesa si fuera necesario.
 					 */
+					
 					mqttClient.publishHandler(new Handler<MqttPublishMessage>() {
 						@Override
 						public void handle(MqttPublishMessage arg0) {
@@ -74,79 +83,24 @@ public class MqttServidor extends AbstractVerticle{
 							
 							//Esto creo que debería ir fuera de aquí. 
 							//Si no, nunca se van a pasar los mensajes los verticles y no se va a publicar en el topic
-							try {
-								Thread.sleep(4000);
-							} catch (InterruptedException e) {
-								e.printStackTrace();
-							}
-							
-							vertx.eventBus().consumer("mqtt-action", message2 -> {
-							String s = message2.body().toString();
-							System.out.println(s);
-							mqttClient.publish("topic_2", Buffer.buffer(s), MqttQoS.AT_LEAST_ONCE, false, false);
-						});
 							
 						}
+						
 					});
 				}
 			});
-
-			/*
-			 * Este timer COMPRUEBA cada 3 segundos si queremos enviar algún mensaje. En tal caso, lo envía.
-			 */
-			/*Scanner scan = new Scanner(System.in);
-			
-			new Timer().scheduleAtFixedRate(new TimerTask() {
-
-				public void run() {
-					
-					 //Publicamos un mensaje en el topic "topic_2"
-					Integer user;
-					String nombre;
-					System.out.println("Introduce el código correspondiente para realizar la acción que desees: ");
-					Integer code=scan.nextInt();
-					if (mqttClient.isConnected()) {
-						if(code==0){
-						System.out.println("Introduce tu ID de usuario: ");
-						user=scan.nextInt();
-						scan.nextLine();
-						System.out.println("Introduce el lugar donde quieres actuar: ");
-						nombre=scan.nextLine();
-						
-						mqttClient.publish("topic_2",
-								Buffer.buffer(new JsonObject().put("action", "servo_on")
-										.put("idUsuario", user)
-										.put("name", nombre)
-										.put("clientId", mqttClient.clientId()).encode()),
-								MqttQoS.AT_LEAST_ONCE, false, false);
-						}else if(code==1){
-						System.out.println("Introduce tu ID de usuario: ");
-						user=scan.nextInt();
-						scan.nextLine();
-						System.out.println("Introduce el lugar donde quieres actuar: ");
-						nombre=scan.nextLine();
-						mqttClient.publish("topic_2",
-									Buffer.buffer(new JsonObject().put("action", "servo_off")
-											.put("idUsuario", user)
-											.put("name", nombre)
-											.put("clientId", mqttClient.clientId()).encode()),
-									MqttQoS.AT_LEAST_ONCE, false, false);
-						}else if(code==2){
-							mqttClient.publish("topic_2",
-									Buffer.buffer(new JsonObject().put("action", "pir_manual_on")
-											.put("clientId", mqttClient.clientId()).encode()),
-									MqttQoS.AT_LEAST_ONCE, false, false);
-						}else if(code==3){
-							mqttClient.publish("topic_2",
-									Buffer.buffer(new JsonObject().put("action", "pir_manual_off")
-											.put("clientId", mqttClient.clientId()).encode()),
-									MqttQoS.AT_LEAST_ONCE, false, false);
-						}
-					}
-				}
-			}, 1000, 3000);*/
 		});
+		try {
+			Thread.sleep(4000);
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 		
+		vertx.eventBus().consumer("mqtt-action", message2 -> {
+		String s = message2.body().toString();
+		System.out.println(s);
+		mqttClient.publish(topic, Buffer.buffer(s), MqttQoS.AT_LEAST_ONCE, false, false);
+	});
 	}
 	
 
@@ -352,4 +306,3 @@ public class MqttServidor extends AbstractVerticle{
 	}
 
 }
-
